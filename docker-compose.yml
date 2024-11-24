@@ -27,6 +27,7 @@ services:
       com.centurylinklabs.watchtower.enable: "true"
 
   backend:
+    image: diazmarcos/backend:latest
     build:
       context: ./TP5-DiazMarcos-backend
       dockerfile: Dockerfile
