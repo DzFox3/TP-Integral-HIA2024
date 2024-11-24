@@ -50,9 +50,51 @@ services:
     networks:
       - red-integrador
 
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    depends_on:
+      - mongo
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongo # Nombre del contenedor de MongoDB
+      - ME_CONFIG_MONGODB_PORT=27017  # Puerto en el que escucha MongoDB
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true # Habilitar herramientas administrativas
+    networks:
+      - red-integrador
+  
+  mongo-backup:
+    image: mongo:latest
+    container_name: mongo-backup
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_HOST=mongo
+      - MONGO_PORT=27017
+    volumes:
+      - ./backups:/backups # Carpeta local para guardar los backups
+    command: >
+      /bin/sh -c "while true; do
+      echo 'Host $MONGO_HOST, port $MONGO_PORT...';
+      mongodump --host $MONGO_HOST --port $MONGO_PORT --out /backups/backup_$(date +%F_%H-%M-%S);
+      sleep 30;
+      done"
+    networks:
+      - red-integrador
+
 networks:
   red-integrador:
     driver: bridge
 
 volumes:
   mongo-data:
+
+
+ # /bin/sh -c "while ! mongo --host mongo --port 27017 --eval 'db.stats()' >/dev/null 2>&1; do
+ #     sleep 1;
+ #     done;
+ #     while true; do
+ #     mongodump --host mongo --port 27017 --out /backups/backup_$(date +%F_%H-%M-%S);
+ #     sleep 30;
+ #     done"
