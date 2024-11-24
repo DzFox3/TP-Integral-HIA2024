@@ -40,6 +40,15 @@ services:
     volumes:
       - ./.env:/app/.env
 
+  watchtower:
+    image: v2tec/watchtower
+    container_name: watchtower
+    command: --interval 30 --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - red-integrador
+
 networks:
   red-integrador:
     driver: bridge
