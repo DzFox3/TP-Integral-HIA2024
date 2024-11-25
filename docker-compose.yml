@@ -78,8 +78,45 @@ services:
       /bin/sh -c "while true; do
       echo 'Host $MONGO_HOST, port $MONGO_PORT...';
       mongodump --host $MONGO_HOST --port $MONGO_PORT --out /backups/backup_$(date +%F_%H-%M-%S);
-      sleep 30;
+      sleep 3600;
       done"
+    networks:
+      - red-integrador
+
+  mongo-exporter:
+    image: bitnami/mongodb-exporter:latest
+    container_name: mongo-exporter
+    ports:
+      - "9216:9216" # Exponer el puerto de mongo-exporter
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+    depends_on:
+      - mongo
+    networks:
+      - red-integrador
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml # Configuración personalizada
+    depends_on:
+      - mongo
+    ports:
+      - "9090:9090" # Exponer el puerto 9090 para Prometheus
+    networks:
+      - red-integrador
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
     networks:
       - red-integrador
 
@@ -89,12 +126,3 @@ networks:
 
 volumes:
   mongo-data:
-
-
- # /bin/sh -c "while ! mongo --host mongo --port 27017 --eval 'db.stats()' >/dev/null 2>&1; do
- #     sleep 1;
- #     done;
- #     while true; do
- #     mongodump --host mongo --port 27017 --out /backups/backup_$(date +%F_%H-%M-%S);
- #     sleep 30;
- #     done"
