@@ -1,13 +1,36 @@
 services:
-  mongo:
-    image: mongo
-    container_name: mongo
+  mongo1:
+    image: mongo:latest
+    container_name: mongo1
     ports:
       - "27017:27017" # Puerto para conectar a Mongo
     volumes:
-      - mongo-data:/data/db # Persistencia de datos
+      - mongo-data1:/data/db # Persistencia de datos
     networks:
       - red-integrador
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo1
+
+  mongo2:
+    image: mongo:latest
+    container_name: mongo2
+    ports:
+      - "27018:27017" # Puerto para conectar a Mongo
+    volumes:
+      - mongo-data2:/data/db # Persistencia de datos
+    networks:
+      - red-integrador
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo2
+
+  mongo3:
+    image: mongo:latest
+    container_name: mongo3
+    ports:
+      - "27019:27017" # Puerto para conectar a Mongo
+    volumes:
+      - mongo-data3:/data/db # Persistencia de datos
+    networks:
+      - red-integrador
+    command: mongod --replSet myReplicaSet --bind_ip localhost,mongo3
 
   frontend:
     image: diazmarcos/frontend:latest
@@ -20,7 +43,7 @@ services:
     depends_on:
       - backend # El frontend depende del backend
     environment:
-      - BACKEND_URL=http://localhost:4000 # Backend URL interno en la red
+      - BACKEND_URL=http://backend:4000 # Backend URL interno en la red
     networks:
       - red-integrador
     labels:
@@ -35,11 +58,13 @@ services:
     ports:
       - "4000:4000" # Exponer el backend en el puerto 3000
     depends_on:
-      - mongo # Asegura que MongoDB esté listo antes del backend
+      - mongo1 # Asegura que MongoDB esté listo antes del backend
     networks:
       - red-integrador
     volumes:
       - ./.env:/app/.env
+    environment:
+      - MONGO_URI=mongodb://mongo1,mongo2,mongo3:27017/tp5db?replicaSet=myReplicaSet
 
   watchtower:
     image: v2tec/watchtower
@@ -54,31 +79,33 @@ services:
     image: mongo-express:latest
     container_name: mongo-express
     depends_on:
-      - mongo
+      - mongo1
+      - mongo2
+      - mongo3
     ports:
       - "8081:8081"
     environment:
-      - ME_CONFIG_MONGODB_SERVER=mongo # Nombre del contenedor de MongoDB
-      - ME_CONFIG_MONGODB_PORT=27017  # Puerto en el que escucha MongoDB
+      - ME_CONFIG_MONGODB_SERVER=mongo1,mongo2,mongo3 # Nombre del contenedor de MongoDB
+      - ME_CONFIG_MONGODB_PORT=27017 # Puerto en el que escucha MongoDB
       - ME_CONFIG_MONGODB_ENABLE_ADMIN=true # Habilitar herramientas administrativas
     networks:
       - red-integrador
-  
+
   mongo-backup:
     image: mongo:latest
     container_name: mongo-backup
     depends_on:
-      - mongo
+      - mongo1
     environment:
-      - MONGO_HOST=mongo
+      - MONGO_HOST=mongo1,mongo2,mongo3
       - MONGO_PORT=27017
     volumes:
       - ./backups:/backups # Carpeta local para guardar los backups
     command: >
       /bin/sh -c "while true; do
       echo 'Host $MONGO_HOST, port $MONGO_PORT...';
-      mongodump --host $MONGO_HOST --port $MONGO_PORT --out /backups/backup_$(date +%F_%H-%M-%S);
-      sleep 3600;
+      mongodump --host $MONGO_HOST --port $MONGO_PORT --db tp5db --out /backups/backup_$(date +%F_%H-%M-%S);
+      sleep 10;
       done"
     networks:
       - red-integrador
@@ -89,9 +116,13 @@ services:
     ports:
       - "9216:9216" # Exponer el puerto de mongo-exporter
     environment:
-      - MONGODB_URI=mongodb://mongo:27017
+      - MONGODB_URI=mongodb://mongo1:27017
+    #  - MONGO_URI=mongodb://mongo1,mongo2,mongo3:27017/tp5db?replicaSet=myReplicaSet
+
     depends_on:
-      - mongo
+      - mongo1
+      - mongo2
+      - mongo3
     networks:
       - red-integrador
 
@@ -101,7 +132,9 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml # Configuración personalizada
     depends_on:
-      - mongo
+      - mongo1
+      - mongo2
+      - mongo3
     ports:
       - "9090:9090" # Exponer el puerto 9090 para Prometheus
     networks:
@@ -123,6 +156,9 @@ services:
 networks:
   red-integrador:
     driver: bridge
+    name: red-integrador
 
 volumes:
-  mongo-data:
+  mongo-data1:
+  mongo-data2:
+  mongo-data3:
